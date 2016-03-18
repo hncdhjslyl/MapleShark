@@ -202,7 +202,7 @@ namespace MapleShark
                         socks5++;
                         return Results.Continue;
                     }
-                    else if (tcpData.Length == 3 && pr.ReadByte() == 5)
+                    else if (pr.ReadByte() == 5)
                     {
                         socks5 = 1;
                         return Results.Continue;
