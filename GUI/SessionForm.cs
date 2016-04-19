@@ -45,7 +45,7 @@ namespace MapleShark
         private MapleStream mInboundStream = null;
         private List<MaplePacket> mPackets = new List<MaplePacket>();
         private List<Opcode> mOpcodes = new List<Opcode>();
-        private int socks5 = 0;
+        private int socksProxyPacketCount = 0;
 
         private string mRemoteEndpoint = "???";
         private string mLocalEndpoint = "???";
@@ -157,14 +157,25 @@ namespace MapleShark
 
                 if (length != tcpData.Length || tcpData.Length < 13)
                 {
-                    if (socks5 > 0 && socks5 < 7)
+                    byte suportSocksVer = 5;
+                    if (socksProxyPacketCount < 1)
                     {
-                        if (pr.ReadByte() == 5 && pr.ReadByte() == 1)
+                        if (pr.ReadByte() == suportSocksVer && tcpData.Length == 3)
                         {
-                            pr.ReadByte();
+                            socksProxyPacketCount = 1;
+                            return Results.Continue;
+                        }
+                    }
+                    else if (socksProxyPacketCount < 7)
+                    {
+                        socksProxyPacketCount++;
+
+                        if (pr.ReadByte() == suportSocksVer && pr.ReadByte() == 1)
+                        {
+                            pr.ReadByte(); // Unknown
                             mProxyEndpoint = mLocalEndpoint;
                             mLocalEndpoint = "";
-                            switch (pr.ReadByte())
+                            switch (pr.ReadByte()) // ATYP
                             {
                                 case 1://IPv4
                                     for (int i = 0; i < 4; i++)
@@ -177,8 +188,8 @@ namespace MapleShark
                                     }
                                     break;
                                 case 3://Domain
-                                    //readInt - String Length
-                                    //readAsciiString - Address
+                                        //readInt - String Length
+                                        //readAsciiString - Address
                                     break;
                                 case 4://IPv6
                                     for (int i = 0; i < 16; i++)
@@ -199,15 +210,10 @@ namespace MapleShark
                             Text = "Port " + mLocalPort + " - " + mRemotePort + "(Proxy" + mProxyPort + ")";
                             Console.WriteLine("[socks5] From {0} to {1} (Proxy {2})", mRemoteEndpoint, mLocalEndpoint, mProxyEndpoint);
                         }
-                        socks5++;
+
                         return Results.Continue;
                     }
-                    else if (pr.ReadByte() == 5)
-                    {
-                        socks5 = 1;
-                        return Results.Continue;
-                    }
-                    Console.WriteLine("Connection on port {0} did not have a MapleStory Handshake", mLocalEndpoint);
+                    Console.WriteLine("Connection on port {0} did not have a MapleStory Handshake or socks porxy version unsuported", mLocalEndpoint);
                     return Results.CloseMe;
                 }
 

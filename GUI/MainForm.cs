@@ -328,6 +328,8 @@ namespace MapleShark
                         continue;
 
                     TcpPacket tcpPacket = (TcpPacket)Packet.ParsePacket(packet.LinkLayerType, packet.Data).Extract(typeof(TcpPacket));
+                    int hash = tcpPacket.SourcePort << 16 | tcpPacket.DestinationPort;
+                    int hashReversed = tcpPacket.DestinationPort << 16 | tcpPacket.SourcePort;
                     SessionForm session = null;
                     try
                     {
@@ -337,13 +339,12 @@ namespace MapleShark
                             var res = session.BufferTCPPacket(tcpPacket, packet.Timeval.Date);
                             if (res == SessionForm.Results.Continue)
                             {
-                                int hash = tcpPacket.SourcePort << 16 | tcpPacket.DestinationPort;
                                 waiting[hash] = session;
                             }
                         }
                         else
                         {
-                            int hash = tcpPacket.DestinationPort << 16 | tcpPacket.SourcePort;
+                            
                             session = Array.Find(MdiChildren, f => (f as SessionForm).MatchTCPPacket(tcpPacket)) as SessionForm;
                             if (session != null)
                             {
@@ -352,12 +353,13 @@ namespace MapleShark
                                 if (res == SessionForm.Results.CloseMe)
                                 {
                                     waiting.Remove(hash);
+                                    waiting.Remove(hashReversed);
                                     session.Close();
                                 }
                                 continue;
                             }
 
-                            if (waiting.TryGetValue(hash, out session))
+                            if (waiting.TryGetValue(hash, out session) || waiting.TryGetValue(hashReversed, out session))
                             {
                                 var res = session.BufferTCPPacket(tcpPacket, packet.Timeval.Date);
 
@@ -370,6 +372,7 @@ namespace MapleShark
                                         continue;
                                 }
                                 waiting.Remove(hash);
+                                waiting.Remove(hashReversed);
                             }
                         }
                     }
